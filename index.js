@@ -41,12 +41,12 @@ async function run() {
     app.get('/bookings-info', async(req, res) => {
         const query = {};
         const bookings = await bookingsCollection.find(query).toArray(); 
-        console.log(bookings);
         res.send(bookings);
     })
 
-    app.get('/bookings/:id', async(req, res) => {
-      const id = req.params.id;
+    app.get('/bookings-details/:id', async(req, res) => {
+      const id = req.body.id;
+      console.log(id);
       const query = ({_id: new ObjectId(id)});
       const findId = await bookingsCollection.findOne(query);
       res.send(findId);
