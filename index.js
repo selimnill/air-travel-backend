@@ -2,7 +2,8 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-const port = 5000;
+const port = process.env.PORT || 5000;
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 
 const app = express();
@@ -34,6 +35,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     const bookingsCollection = client.db('air-travel-booking').collection('bookingsCollection');
+    const paymentsCollection = client.db('air-travel-booking').collection('payments');
 
 
 
@@ -45,12 +47,45 @@ async function run() {
     })
 
     app.get('/bookings-details/:id', async(req, res) => {
-      const id = req.body.id;
-      console.log(id);
+      const id = req.params.id;
       const query = ({_id: new ObjectId(id)});
       const findId = await bookingsCollection.findOne(query);
       res.send(findId);
     })
+
+    app.post('/create-payment-intent', async(req, res) => {
+      const booking = req.body;
+      console.log(booking);
+      const price = booking.price;
+      const amount = price * 100;
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        currency:'usd',
+        amount: amount,
+        "payment_method_types": [
+            "card"
+        ]
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      })
+    });
+
+    app.post('/payments', async (req, res) =>{
+      const payment = req.body;
+      console.log(payment);
+      const result = await paymentsCollection.insertOne(payment);
+      const id = payment.bookingId
+      const filter = {_id: new ObjectId(id)}
+      const updatedDoc = {
+          $set: {
+              paid: true,
+              transactionId: payment.transactionId
+          }
+      }
+      const updatedResult = await bookingsCollection.updateOne(filter, updatedDoc)
+      res.send(result);
+  })
     
     
   } finally {
